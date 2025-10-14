@@ -1,95 +1,133 @@
-import { useFetcher, useLoaderData } from "react-router";
+import { useState, useEffect, Component, type ReactNode } from "react";
+import { useParams } from "react-router";
 import type { Data } from "@measured/puck";
 import { Puck, Render } from "@measured/puck";
 
-import type { Route } from "./+types/puck-splat";
 import { config } from "../../puck.config";
-import { resolvePuckPath } from "~/lib/resolve-puck-path.server";
-import { getPage, savePage } from "~/lib/pages.server";
 import editorStyles from "@measured/puck/puck.css?url";
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const pathname = params["*"] ?? "/";
-  const { isEditorRoute, path } = resolvePuckPath(pathname);
-  let page = await getPage(path);
-
-  // Throw a 404 if we're not rendering the editor and data for the page does not exist
-  if (!isEditorRoute && !page) {
-    throw new Response("Not Found", { status: 404 });
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
   }
 
-  // Empty shell for new pages
-  if (isEditorRoute && !page) {
-    page = {
-      content: [],
-      root: {
-        props: {
-          title: "",
-        },
-      },
-    };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
   }
 
-  return {
-    isEditorRoute,
-    path,
-    data: page,
-  };
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", color: "red" }}>
+          <h1>Something went wrong.</h1>
+          <pre>{this.state.error?.message}</pre>
+          <pre>{this.state.error?.stack}</pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
-export function meta({ data: loaderData }: Route.MetaArgs) {
-  return [
-    {
-      title: loaderData.isEditorRoute
-        ? `Edit: ${loaderData.path}`
-        : loaderData.data.root.title,
+const initialData = {
+  content: [],
+  root: {
+    props: {
+      title: "New Page",
     },
-  ];
+  },
+  zones: {},
+};
+
+function Editor({ initialPageData, pagePath }: { initialPageData: Data; pagePath: string }) {
+  const [data, setData] = useState<Data>(initialPageData);
+
+  console.log("Editor rendering with data:", data);
+  console.log("Config:", config);
+  console.log("Page path for saving:", pagePath);
+
+  try {
+    return (
+      <>
+        <link rel="stylesheet" href={editorStyles} id="puck-css" />
+        <Puck
+          config={config}
+          data={data}
+          onPublish={async (newData) => {
+            console.log("Publishing to:", `puck-page:${pagePath}`, newData);
+            // Save to localStorage for SPA mode
+            localStorage.setItem(`puck-page:${pagePath}`, JSON.stringify(newData));
+            setData(newData);
+            alert("Page saved!");
+          }}
+        />
+      </>
+    );
+  } catch (error) {
+    console.error("Error rendering Puck:", error);
+    return (
+      <div style={{ padding: "2rem", color: "red" }}>
+        <h1>Error rendering Puck editor</h1>
+        <pre>{error instanceof Error ? error.message : String(error)}</pre>
+      </div>
+    );
+  }
 }
 
-export async function action({ params, request }: Route.ActionArgs) {
+export default function PuckSplatRoute() {
+  const params = useParams();
   const pathname = params["*"] ?? "/";
-  const { path } = resolvePuckPath(pathname);
-  const body = (await request.json()) as { data: Data };
+  const isEditorRoute = pathname.endsWith("/edit") || pathname === "edit";
 
-  await savePage(path, body.data);
-}
+  // Normalize the path - remove trailing /edit and ensure it starts with /
+  let pagePath = isEditorRoute ? pathname.replace(/\/edit$/, "").replace(/^edit$/, "") : pathname;
+  if (!pagePath || pagePath === "") {
+    pagePath = "/";
+  }
+  if (!pagePath.startsWith("/")) {
+    pagePath = "/" + pagePath;
+  }
 
-function Editor() {
-  const loaderData = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
+  const [pageData, setPageData] = useState<Data | null>(null);
+
+  useEffect(() => {
+    console.log("PuckSplatRoute mounted", { pathname, isEditorRoute, pagePath });
+
+    // Load from localStorage in SPA mode
+    const stored = localStorage.getItem(`puck-page:${pagePath}`);
+    console.log("Loading from localStorage with key:", `puck-page:${pagePath}`, "Data:", stored);
+
+    if (stored) {
+      setPageData(JSON.parse(stored));
+    } else {
+      setPageData(initialData);
+    }
+  }, [pagePath]);
+
+  console.log("Render state:", { pageData, isEditorRoute });
+
+  if (!pageData) {
+    return <div style={{ padding: "2rem" }}>Loading...</div>;
+  }
 
   return (
-    <>
-      <link rel="stylesheet" href={editorStyles} id="puck-css" />
-      <Puck
-        config={config}
-        data={loaderData.data}
-        onPublish={async (data) => {
-          await fetcher.submit(
-            {
-              data,
-            },
-            {
-              action: "",
-              method: "post",
-              encType: "application/json",
-            }
-          );
-        }}
-      />
-    </>
-  );
-}
-
-export default function PuckSplatRoute({ loaderData }: Route.ComponentProps) {
-  return (
-    <div>
-      {loaderData.isEditorRoute ? (
-        <Editor />
-      ) : (
-        <Render config={config} data={loaderData.data} />
-      )}
-    </div>
+    <ErrorBoundary>
+      <div>
+        {isEditorRoute ? (
+          <Editor initialPageData={pageData} pagePath={pagePath} />
+        ) : (
+          <Render config={config} data={pageData} />
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }

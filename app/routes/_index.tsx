@@ -1,31 +1,38 @@
-import type { Route } from "./+types/_index";
+import { useEffect, useState } from "react";
 import { PuckRender } from "~/components/puck-render";
-import { resolvePuckPath } from "~/lib/resolve-puck-path.server";
-import { getPage } from "~/lib/pages.server";
+import type { Data } from "@measured/puck";
 
-export async function loader() {
-  const { isEditorRoute, path } = resolvePuckPath("/");
-  let page = await getPage(path);
+const defaultData = {
+  content: [
+    {
+      type: "HeadingBlock",
+      props: {
+        title: "Edit this page by adding /edit to the end of the URL",
+        id: "HeadingBlock-1694032984497",
+        level: "h1",
+      },
+    },
+  ],
+  root: { props: { title: "Puck + React Router 7 demo" } },
+  zones: {},
+};
 
-  if (!page) {
-    throw new Response("Not Found", { status: 404 });
+export default function IndexRoute() {
+  const [data, setData] = useState<Data | null>(null);
+
+  useEffect(() => {
+    // Load from localStorage
+    const stored = localStorage.getItem("puck-page:/");
+    if (stored) {
+      setData(JSON.parse(stored));
+    } else {
+      setData(defaultData);
+    }
+  }, []);
+
+  if (!data) {
+    return <div style={{ padding: "2rem" }}>Loading...</div>;
   }
 
-  return {
-    isEditorRoute,
-    path,
-    data: page,
-  };
-}
-
-export function meta({ data: loaderData }: Route.MetaArgs) {
-  return [
-    {
-      title: loaderData.data.root.title,
-    },
-  ];
-}
-
-export default function PuckSplatRoute({ loaderData }: Route.ComponentProps) {
-  return <PuckRender data={loaderData.data} />;
+  return <PuckRender data={data} />;
 }
