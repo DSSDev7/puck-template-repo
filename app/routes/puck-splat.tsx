@@ -2,6 +2,7 @@ import { useState, useEffect, Component, type ReactNode } from "react";
 import { useParams } from "react-router";
 import type { Data } from "@measured/puck";
 import { Puck, Render } from "@measured/puck";
+import { PuckEditorControlled } from "~/components/puck-editor-controlled";
 
 import { config } from "../../puck.config";
 import editorStyles from "@measured/puck/puck.css?url";
@@ -49,9 +50,7 @@ const initialData = {
 };
 
 function Editor({ initialPageData, pagePath }: { initialPageData: Data; pagePath: string }) {
-  const [data, setData] = useState<Data>(initialPageData);
-
-  console.log("Editor rendering with data:", data);
+  console.log("Editor rendering with data:", initialPageData);
   console.log("Config:", config);
   console.log("Page path for saving:", pagePath);
 
@@ -59,16 +58,9 @@ function Editor({ initialPageData, pagePath }: { initialPageData: Data; pagePath
     return (
       <>
         <link rel="stylesheet" href={editorStyles} id="puck-css" />
-        <Puck
-          config={config}
-          data={data}
-          onPublish={async (newData) => {
-            console.log("Publishing to:", `puck-page:${pagePath}`, newData);
-            // Save to localStorage for SPA mode
-            localStorage.setItem(`puck-page:${pagePath}`, JSON.stringify(newData));
-            setData(newData);
-            alert("Page saved!");
-          }}
+        <PuckEditorControlled
+          initialData={initialPageData}
+          pagePath={pagePath}
         />
       </>
     );
