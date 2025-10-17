@@ -154,6 +154,14 @@ export function PuckEditorControlled({
         data={data}
         onPublish={async (newData) => {
           setData(newData);
+          window.parent.postMessage(
+            {
+              type: "PUCK_PUBLISH",
+              data: newData,
+              pagePath,
+            },
+            "*"
+          );
           alert("Page saved!");
         }}
         onChange={(newData) => {
