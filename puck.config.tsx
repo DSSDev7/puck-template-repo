@@ -255,13 +255,13 @@ export const config: Config<Props> = {
       },
       render: (props) => {
         const { title, level, ...rest } = props;
-        const Tag = level;
+        const HeadingTag = (level ?? "h2") as keyof JSX.IntrinsicElements;
         const cssClasses = getCssClasses(rest);
         const cssStyles = getCssStyles(rest);
         return (
-          <Tag className={`font-bold ${cssClasses}`} style={cssStyles}>
+          <HeadingTag className={`font-bold ${cssClasses}`} style={cssStyles}>
             {title}
-          </Tag>
+          </HeadingTag>
         );
       },
     },
