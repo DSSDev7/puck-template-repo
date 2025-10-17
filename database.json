@@ -1,1 +1,97 @@
-{"/":{"content":[{"type":"HeadingBlock","props":{"title":"Edit this page by adding /edit to the end of the URL","id":"HeadingBlock-1694032984497"}}],"root":{"props":{"title":"Puck + React Router 7 demo"}},"zones":{}}}
+{
+  "/": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "HeroBlock", "props": {} },
+      { "type": "FeatureGridBlock", "props": {} },
+      { "type": "TestimonialBlock", "props": {} },
+      { "type": "CtaBlock", "props": {} },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Bolt Cold Brew | Home" } }
+  },
+  "/shop": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "Shop All", "text": "Fuel your focus with our premium cold brew selections.", "align": "center" } },
+      { "type": "ProductGridBlock", "props": {} },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Shop | Bolt Cold Brew" } }
+  },
+  "/our-process": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "The Bolt Difference", "text": "Our unique 18-hour steeping process and commitment to quality ingredients establish authority and trust. We meticulously craft every batch to ensure a smooth, powerful, and consistently delicious experience. No shortcuts, no compromises—just the perfect fuel for your ambitions.", "align": "left" } },
+      { "type": "FeatureGridBlock", "props": {} },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Our Process | Bolt Cold Brew" } }
+  },
+  "/subscribe": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "CtaBlock", "props": { "title": "Subscribe & Save", "description": "Never run out of fuel. Get your favorite Bolt Cold Brew delivered on your schedule and save on every order. It's the ultimate convenience without compromising on quality.", "ctaText": "Set Up My Subscription", "ctaLink": "/account" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Subscribe & Save | Bolt Cold Brew" } }
+  },
+  "/about": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "Our Story", "text": "Bolt was born from a simple problem: the world demands high performance, but traditional energy sources come with a cost—jitters, crashes, and unhealthy ingredients. We knew there had to be a better way.\n\nWe created Bolt to fuel your ambitions with clean, powerful, and delicious cold brew that works as hard as you do. It's more than coffee; it's the key to unlocking your full potential.", "align": "left" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "About Us | Bolt Cold Brew" } }
+  },
+  "/blog": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "The Focus Fuel Blog", "text": "Content coming soon! Check back for articles on productivity, health, and energy to support your ambitions.", "align": "center" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Blog | Bolt Cold Brew" } }
+  },
+  "/reviews": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "What Our Customers Say", "text": "Real stories from high-achievers fueled by Bolt.", "align": "center" } },
+      { "type": "TestimonialBlock", "props": {} },
+      { "type": "TestimonialBlock", "props": { "quote": "You've been on fire lately! What's your secret? This stuff. Seriously, it's a game-changer for my afternoon slump.", "author": "Samantha Jones", "role": "Marketing Director", "imageUrl": "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=800" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Reviews | Bolt Cold Brew" } }
+  },
+  "/faq": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "FaqBlock", "props": {} },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "FAQ | Bolt Cold Brew" } }
+  },
+  "/contact": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "ContactFormBlock", "props": {} },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Contact Us | Bolt Cold Brew" } }
+  },
+  "/account": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "My Account", "text": "Manage your orders, subscriptions, and personal information here. (Functionality to be implemented)", "align": "center" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "My Account | Bolt Cold Brew" } }
+  },
+  "/cart": {
+    "content": [
+      { "type": "HeaderBlock", "props": {} },
+      { "type": "TextBlock", "props": { "heading": "Shopping Cart", "text": "Your cart is currently empty.", "align": "center" } },
+      { "type": "FooterBlock", "props": {} }
+    ],
+    "root": { "props": { "title": "Cart | Bolt Cold Brew" } }
+  }
+}
