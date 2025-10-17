@@ -1,7 +1,7 @@
-import { useState, useEffect, Component, type ReactNode } from "react";
+import { useState, useEffect, useCallback, Component, type ReactNode } from "react";
 import { useParams } from "react-router";
 import type { Data } from "@measured/puck";
-import { Puck, Render } from "@measured/puck";
+import { Render } from "@measured/puck";
 import { PuckEditorControlled } from "~/components/puck-editor-controlled";
 
 import { config } from "../../puck.config";
@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-const initialData = {
+const DEFAULT_PAGE_DATA: Data = {
   content: [],
   root: {
     props: {
@@ -49,7 +49,15 @@ const initialData = {
   zones: {},
 };
 
-function Editor({ initialPageData, pagePath }: { initialPageData: Data; pagePath: string }) {
+function Editor({
+  initialPageData,
+  pagePath,
+  onPageDataChange,
+}: {
+  initialPageData: Data;
+  pagePath: string;
+  onPageDataChange: (data: Data) => void;
+}) {
   console.log("Editor rendering with data:", initialPageData);
   console.log("Config:", config);
   console.log("Page path for saving:", pagePath);
@@ -61,6 +69,7 @@ function Editor({ initialPageData, pagePath }: { initialPageData: Data; pagePath
         <PuckEditorControlled
           initialData={initialPageData}
           pagePath={pagePath}
+          onDataChange={onPageDataChange}
         />
       </>
     );
@@ -91,18 +100,48 @@ export default function PuckSplatRoute() {
 
   const [pageData, setPageData] = useState<Data | null>(null);
 
+  const handleEditorDataChange = useCallback(
+    (updatedData: Data) => {
+      setPageData(updatedData);
+    },
+    [setPageData]
+  );
+
   useEffect(() => {
     console.log("PuckSplatRoute mounted", { pathname, isEditorRoute, pagePath });
 
-    // Load from localStorage in SPA mode
-    const stored = localStorage.getItem(`puck-page:${pagePath}`);
-    console.log("Loading from localStorage with key:", `puck-page:${pagePath}`, "Data:", stored);
+    let isMounted = true;
 
-    if (stored) {
-      setPageData(JSON.parse(stored));
-    } else {
-      setPageData(initialData);
-    }
+    const loadPageData = async () => {
+      try {
+        const response = await fetch(`/database.json?path=${encodeURIComponent(pagePath)}&t=${Date.now()}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load database.json: ${response.status} ${response.statusText}`);
+        }
+
+        const pages = (await response.json()) as Record<string, Data>;
+        const nextData = pages[pagePath] ?? DEFAULT_PAGE_DATA;
+
+        if (isMounted) {
+          setPageData(nextData);
+        }
+      } catch (error) {
+        console.error("Error loading page data from database.json:", error);
+
+        if (isMounted) {
+          setPageData(DEFAULT_PAGE_DATA);
+        }
+      }
+    };
+
+    loadPageData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [pagePath]);
 
   console.log("Render state:", { pageData, isEditorRoute });
@@ -115,7 +154,11 @@ export default function PuckSplatRoute() {
     <ErrorBoundary>
       <div>
         {isEditorRoute ? (
-          <Editor initialPageData={pageData} pagePath={pagePath} />
+          <Editor
+            initialPageData={pageData}
+            pagePath={pagePath}
+            onPageDataChange={handleEditorDataChange}
+          />
         ) : (
           <Render config={config} data={pageData} />
         )}

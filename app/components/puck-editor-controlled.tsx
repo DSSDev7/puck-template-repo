@@ -54,6 +54,10 @@ export function PuckEditorControlled({
 }: PuckEditorControlledProps) {
   const [data, setData] = useState<Data>(initialData);
 
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
   // Handle messages from parent window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -81,15 +85,13 @@ export function PuckEditorControlled({
             content: [...currentData.content, newComponent],
           };
 
-          // Save to localStorage
-          localStorage.setItem(`puck-page:${pagePath}`, JSON.stringify(newData));
-
           // Notify parent
           window.parent.postMessage(
             {
               type: "PUCK_COMPONENT_ADDED",
               componentType,
               componentLabel,
+              pagePath,
             },
             "*"
           );
@@ -126,10 +128,11 @@ export function PuckEditorControlled({
       {
         type: "PUCK_DATA_CHANGED",
         data,
+        pagePath,
       },
       "*"
     );
-  }, [data, onDataChange]);
+  }, [data, onDataChange, pagePath]);
 
   return (
     <>
@@ -150,8 +153,6 @@ export function PuckEditorControlled({
         config={config}
         data={data}
         onPublish={async (newData) => {
-          console.log("Publishing to:", `puck-page:${pagePath}`, newData);
-          localStorage.setItem(`puck-page:${pagePath}`, JSON.stringify(newData));
           setData(newData);
           alert("Page saved!");
         }}

@@ -21,13 +21,36 @@ export default function IndexRoute() {
   const [data, setData] = useState<Data | null>(null);
 
   useEffect(() => {
-    // Load from localStorage
-    const stored = localStorage.getItem("puck-page:/");
-    if (stored) {
-      setData(JSON.parse(stored));
-    } else {
-      setData(defaultData);
-    }
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const response = await fetch(`/database.json?t=${Date.now()}`, { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load database.json: ${response.status} ${response.statusText}`);
+        }
+
+        const pages = (await response.json()) as Record<string, Data>;
+        const nextData = pages["/"] ?? defaultData;
+
+        if (isMounted) {
+          setData(nextData);
+        }
+      } catch (error) {
+        console.error("Error loading home page data:", error);
+
+        if (isMounted) {
+          setData(defaultData);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (!data) {
