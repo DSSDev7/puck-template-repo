@@ -104,12 +104,29 @@ export function PuckEditorControlled({
     window.addEventListener("message", handleMessage);
 
     // Notify parent that Puck is ready
+    const categories = Object.entries(config.categories || {}).map(([id, category]) => ({
+      id,
+      title: (category as any)?.title ?? id,
+      components: ((category as any)?.components ?? []) as string[],
+    }));
+
+    const components = Object.entries(config.components || {}).reduce<
+      Record<string, { id: string; label: string; description?: string }>
+    >((acc, [id, component]) => {
+      acc[id] = {
+        id,
+        label: (component as any)?.label ?? id,
+        description: (component as any)?.description,
+      };
+      return acc;
+    }, {});
+
     window.parent.postMessage(
       {
         type: "PUCK_READY",
         config: {
-          categories: Object.keys(config.categories || {}),
-          components: Object.keys(config.components || {}),
+          categories,
+          components,
         },
       },
       "*"
