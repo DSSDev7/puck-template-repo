@@ -1,6 +1,13 @@
-import { useState, useEffect } from "react";
-import { Puck, type Data } from "@measured/puck";
-import { config } from "../../puck.config";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Puck, type Data, type Config } from "@measured/puck";
+import { config as baseConfig } from "../../puck.config";
+import { getDefaultComponentPropsWithId } from "../lib/defaultComponentProps";
+import {
+  categories as libraryCategories,
+  components as libraryComponents,
+  registry as componentRegistry,
+  type ComponentId,
+} from "@digitalsupsystems/puck-components";
 
 interface PuckEditorControlledProps {
   initialData: Data;
@@ -8,134 +15,180 @@ interface PuckEditorControlledProps {
   onDataChange?: (data: Data) => void;
 }
 
-// Default props for each component type
-const DEFAULT_PROPS: Record<string, any> = {
-  HeadingBlock: { title: "New Heading", level: "h2" },
-  TextBlock: { content: "Your text goes here", fontSize: "base" },
-  ButtonBlock: { text: "Click me", variant: "default", size: "default" },
-  BadgeBlock: { text: "Badge", variant: "default" },
-  CardBlock: {
-    title: "Card Title",
-    description: "Card description",
-    content: "Card content",
-    footerText: "Card footer",
-  },
-  AlertBlock: { title: "Alert Title", description: "Alert description", variant: "default" },
-  InputBlock: { label: "Input Label", placeholder: "Enter text...", type: "text" },
-  TextareaBlock: { label: "Textarea Label", placeholder: "Enter text...", rows: 4 },
-  CheckboxBlock: { label: "Accept terms", defaultChecked: false },
-  SwitchBlock: { label: "Enable notifications", defaultChecked: false },
-  ContainerBlock: { padding: "md", maxWidth: "lg" },
-  SeparatorBlock: { orientation: "horizontal" },
-  SkeletonBlock: { skeletonWidth: "100%", skeletonHeight: "20px" },
-  ProgressBlock: { value: 50, label: "Progress" },
-  SpinnerBlock: { size: "md" },
-  AvatarBlock: { src: "https://github.com/shadcn.png", alt: "Avatar", fallback: "CN" },
-  ImageBlock: { src: "https://via.placeholder.com/600x400", alt: "Placeholder", objectFit: "cover" },
-  AccordionBlock: {
-    items: [
-      { title: "Item 1", content: "Content for item 1" },
-      { title: "Item 2", content: "Content for item 2" },
-    ],
-  },
-  TabsBlock: {
-    tabs: [
-      { label: "Tab 1", content: "Content for tab 1" },
-      { label: "Tab 2", content: "Content for tab 2" },
-    ],
-  },
-  ColumnsBlock: { columns: 2, gap: "md", distribution: "equal", padding: "md" },
-};
+const readyCategories = libraryCategories.map((category) => ({
+  id: category.id,
+  title: category.title,
+  components: [...category.components],
+}));
 
-export function PuckEditorControlled({
-  initialData,
-  pagePath,
-  onDataChange,
-}: PuckEditorControlledProps) {
+const readyComponents = Object.entries(libraryComponents).reduce<
+  Record<string, { id: string; label: string; description?: string; previewImage?: string; moduleId?: string }>
+>((acc, [id, meta]) => {
+  acc[id] = {
+    id,
+    label: meta?.label ?? id,
+    description: meta?.description,
+    previewImage: meta?.previewImage,
+    moduleId: meta?.moduleId,
+  };
+  return acc;
+}, {});
+
+const componentCategoryLookup = readyCategories.reduce<Record<string, string>>((acc, category) => {
+  category.components.forEach((componentId) => {
+    acc[componentId] = category.id;
+  });
+  return acc;
+}, {});
+
+export function PuckEditorControlled({ initialData, pagePath, onDataChange }: PuckEditorControlledProps) {
   const [data, setData] = useState<Data>(initialData);
+  const [puckConfig, setPuckConfig] = useState<Config<any>>(baseConfig as Config<any>);
+  const configRef = useRef<Config<any>>(baseConfig as Config<any>);
+
+  const ensureComponentLoaded = useCallback(
+    async (componentId: string): Promise<boolean> => {
+      if (configRef.current.components?.[componentId]) {
+        return true;
+      }
+
+      const loader = componentRegistry[componentId as ComponentId];
+
+      if (!loader) {
+        console.warn(`[Puck] No loader registered for component ${componentId}`);
+        return false;
+      }
+
+      try {
+        const mod = await loader();
+        const Component = mod?.default;
+
+        if (!Component) {
+          console.warn(`[Puck] Component ${componentId} did not provide a default export`);
+          return false;
+        }
+
+        const meta = libraryComponents[componentId as ComponentId];
+        const existingComponents = (configRef.current.components ?? {}) as Record<string, any>;
+
+        const nextComponents: Record<string, any> = {
+          ...existingComponents,
+          [componentId]: {
+            ...(existingComponents[componentId] ?? {}),
+            label: meta?.label ?? componentId,
+            description: meta?.description,
+            fields: {},
+            render: (props: Record<string, unknown>) => <Component {...props} />,
+          },
+        };
+
+        const nextCategories = { ...(configRef.current.categories ?? {}) } as Record<
+          string,
+          { title: string; components: string[] }
+        >;
+        const categoryId = componentCategoryLookup[componentId];
+
+        if (categoryId) {
+          const baseCategory = libraryCategories.find((category) => category.id === categoryId);
+          const currentCategory = nextCategories[categoryId] ?? {
+            title: baseCategory?.title ?? categoryId,
+            components: [...(baseCategory?.components ?? [])],
+          };
+
+          if (!currentCategory.components.includes(componentId)) {
+            currentCategory.components = [...currentCategory.components, componentId];
+          }
+
+          nextCategories[categoryId] = currentCategory;
+        }
+
+        const nextConfig: Config<any> = {
+          ...configRef.current,
+          components: nextComponents,
+          categories: nextCategories,
+        };
+
+        configRef.current = nextConfig;
+        setPuckConfig(nextConfig);
+        return true;
+      } catch (error) {
+        console.error(`[Puck] Failed to dynamically load component ${componentId}`, error);
+        return false;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
-  // Handle messages from parent window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === "ADD_PUCK_COMPONENT") {
-        const { componentType, componentLabel } = event.data;
+        const { componentType, componentLabel, defaultProps } = event.data;
 
-        console.log(`[Puck] Received ADD_PUCK_COMPONENT: ${componentType}`);
+        void (async () => {
+          const loaded = await ensureComponentLoaded(componentType);
 
-        // Get default props for this component type
-        const defaultProps = DEFAULT_PROPS[componentType] || {};
+          if (!loaded) {
+            console.warn(`[Puck] Skipping add; component ${componentType} failed to load.`);
+            return;
+          }
 
-        // Create new component with unique ID
-        const newComponent = {
-          type: componentType,
-          props: {
-            ...defaultProps,
-            id: `${componentType}-${Date.now()}`,
-          },
-        };
+          const fallbackProps = getDefaultComponentPropsWithId(componentType);
+          const resolvedProps =
+            defaultProps && typeof defaultProps === "object"
+              ? { ...defaultProps }
+              : { ...fallbackProps };
 
-        // Add component to data
-        setData((currentData) => {
-          const newData = {
-            ...currentData,
-            content: [...currentData.content, newComponent],
+          if (typeof resolvedProps.id !== "string" || resolvedProps.id.length === 0) {
+            resolvedProps.id = fallbackProps.id;
+          }
+
+          const newComponent = {
+            type: componentType,
+            props: resolvedProps,
           };
 
-          // Notify parent
-          window.parent.postMessage(
-            {
-              type: "PUCK_COMPONENT_ADDED",
-              componentType,
-              componentLabel,
-              pagePath,
-            },
-            "*"
-          );
+          setData((currentData) => {
+            const newData = {
+              ...currentData,
+              content: [...currentData.content, newComponent],
+            };
 
-          return newData;
-        });
+            window.parent.postMessage(
+              {
+                type: "PUCK_COMPONENT_ADDED",
+                componentType,
+                componentLabel,
+                pagePath,
+              },
+              "*",
+            );
+
+            return newData;
+          });
+        })();
       }
     };
 
     window.addEventListener("message", handleMessage);
 
-    // Notify parent that Puck is ready
-    const categories = Object.entries(config.categories || {}).map(([id, category]) => ({
-      id,
-      title: (category as any)?.title ?? id,
-      components: ((category as any)?.components ?? []) as string[],
-    }));
-
-    const components = Object.entries(config.components || {}).reduce<
-      Record<string, { id: string; label: string; description?: string }>
-    >((acc, [id, component]) => {
-      acc[id] = {
-        id,
-        label: (component as any)?.label ?? id,
-        description: (component as any)?.description,
-      };
-      return acc;
-    }, {});
-
     window.parent.postMessage(
       {
         type: "PUCK_READY",
         config: {
-          categories,
-          components,
+          categories: readyCategories,
+          components: readyComponents,
         },
       },
-      "*"
+      "*",
     );
 
     return () => window.removeEventListener("message", handleMessage);
-  }, [pagePath]);
+  }, [ensureComponentLoaded, pagePath]);
 
-  // Notify parent when data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(data);
@@ -147,13 +200,12 @@ export function PuckEditorControlled({
         data,
         pagePath,
       },
-      "*"
+      "*",
     );
   }, [data, onDataChange, pagePath]);
 
   return (
     <>
-      {/* Hide Puck's built-in component sidebar */}
       <style>{`
         .Puck-leftSidebar {
           display: none !important;
@@ -167,7 +219,14 @@ export function PuckEditorControlled({
       `}</style>
 
       <Puck
-        config={config}
+        config={puckConfig}
+        ui={{
+          leftSideBarVisible: false,
+          //@ts-ignore
+          viewports: {
+            controlsVisible: false,
+          },
+        }}
         data={data}
         onPublish={async (newData) => {
           setData(newData);
@@ -177,12 +236,12 @@ export function PuckEditorControlled({
               data: newData,
               pagePath,
             },
-            "*"
+            "*",
           );
           alert("Page saved!");
         }}
+        renderHeader={() => <></>}
         onChange={(newData) => {
-          // Update data when user edits in canvas
           setData(newData);
         }}
       />
