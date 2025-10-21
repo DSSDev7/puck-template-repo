@@ -119,9 +119,70 @@ export function PuckEditorControlled({ initialData, pagePath, onDataChange }: Pu
     [],
   );
 
+  const extractComponentTypes = useCallback((document: Data): string[] => {
+    const types = new Set<string>();
+
+    const visit = (value: unknown) => {
+      if (!value) {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+
+      if (typeof value === "object") {
+        const record = value as Record<string, unknown>;
+
+        if (typeof record.type === "string") {
+          types.add(record.type);
+        }
+
+        if (record.content) {
+          visit(record.content);
+        }
+
+        if (record.zones && typeof record.zones === "object") {
+          Object.values(record.zones as Record<string, unknown>).forEach(visit);
+        }
+      }
+    };
+
+    visit(document.content);
+
+    if (document.zones && typeof document.zones === "object") {
+      Object.values(document.zones as Record<string, unknown>).forEach(visit);
+    }
+
+    return Array.from(types);
+  }, []);
+
   useEffect(() => {
-    setData(initialData);
-  }, [initialData]);
+    let cancelled = false;
+
+    const prepareInitialData = async () => {
+      const componentTypes = extractComponentTypes(initialData);
+
+      for (const componentType of componentTypes) {
+        await ensureComponentLoaded(componentType);
+
+        if (cancelled) {
+          return;
+        }
+      }
+
+      if (!cancelled) {
+        setData(initialData);
+      }
+    };
+
+    void prepareInitialData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialData, ensureComponentLoaded, extractComponentTypes]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
